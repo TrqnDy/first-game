@@ -113,7 +113,8 @@ class SurvivorGame:
                         choice(self.spawn_position),
                         (self.all_sprites, self.enemy_sprites),
                         self.player,
-                        self.collision_sprites
+                        self.collision_sprites,
+                        self.bullet_sprites
                     )
 
             self.input()
@@ -173,7 +174,7 @@ class Bullet(pygame.sprite.Sprite):
             self.kill()
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, pos, frames, groups, player, collision_sprites):
+    def __init__(self, pos, frames, groups, player, collision_sprites, bullet_sprites):
         super().__init__(groups)
         self.player = player
         self.frames, self.frame_index = frames, 0
@@ -182,14 +183,54 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center = pos)
         self.hitbox_rect = self.rect.inflate(-20, -40)
         self.collision_sprites = collision_sprites
+        self.bullet_sprites = bullet_sprites
         self.direction = pygame.math.Vector2()
 
     def update(self, dt):
-        direction = (pygame.math.Vector2(self.rect.center) - pygame.math.Vector2(self.player.rect.center)).normalize() 
-        self.rect.center -= direction * self.speed * dt
+        direction = (
+            pygame.math.Vector2(self.player.rect.center) -
+            pygame.math.Vector2(self.hitbox_rect.center)
+        )
+
+        if direction.length() != 0:
+            self.direction = direction.normalize()
+
+        self.hitbox_rect.x += self.direction.x * self.speed * dt
+        self.collision_walls("horizontal")
+
+        self.hitbox_rect.y += self.direction.y * self.speed * dt
+        self.collision_walls("vertical")
+
+        self.rect.center = self.hitbox_rect.center
+
+        if self.bullet_collision():
+            self.kill()
+
+    def collision_walls(self, direction):
+        for sprite in self.collision_sprites:
+            if sprite.rect.colliderect(self.hitbox_rect):
+                if direction == "horizontal":
+                    if self.direction.x > 0:
+                        self.hitbox_rect.right = sprite.rect.left
+                    if self.direction.x < 0:
+                        self.hitbox_rect.left = sprite.rect.right
+                    self.rect.centerx = self.hitbox_rect.centerx
+                else:
+                    if self.direction.y > 0:
+                        self.hitbox_rect.bottom = sprite.rect.top
+                    if self.direction.y < 0:
+                        self.hitbox_rect.top = sprite.rect.bottom
+                    self.rect.centery = self.hitbox_rect.centery
+
+    def bullet_collision(self):
+        for bullet in self.bullet_sprites:
+            if self.hitbox_rect.colliderect(bullet.rect):
+                bullet.kill()
+                return True
+        return False
 
 class Bat(Enemy):
-    def __init__(self, pos, groups, player, collision_sprites):
+    def __init__(self, pos, groups, player, collision_sprites, bullet_sprites):
 
         frames = [
             pygame.image.load(f"bat_{i}.png").convert_alpha()
@@ -201,13 +242,14 @@ class Bat(Enemy):
             frames,
             groups,
             player,
-            collision_sprites
+            collision_sprites,
+            bullet_sprites
         )
 
         self.speed = 350
 
 class Blob(Enemy):
-    def __init__(self, pos, groups, player, collision_sprites):
+    def __init__(self, pos, groups, player, collision_sprites, bullet_sprites):
         frames = [
             pygame.image.load(f"blob_{i}.png").convert_alpha()
             for i in range(4)
@@ -218,12 +260,13 @@ class Blob(Enemy):
             frames,
             groups,
             player,
-            collision_sprites
+            collision_sprites,
+            bullet_sprites
         )
         self.speed = 100
 
 class Skeleton(Enemy):
-    def __init__(self, pos, groups, player, collision_sprites):
+    def __init__(self, pos, groups, player, collision_sprites, bullet_sprites):
         self.skeleton_frames = [
             pygame.image.load(f"skeleton_{i}.png").convert_alpha()
             for i in range(4)
@@ -234,7 +277,8 @@ class Skeleton(Enemy):
             self.skeleton_frames,
             groups,
             player,
-            collision_sprites
+            collision_sprites,
+            bullet_sprites
         )
         self.speed = 150
 
