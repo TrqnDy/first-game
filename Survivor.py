@@ -3,6 +3,7 @@ from math import atan2, degrees
 import pygame
 from player import Player
 from pytmx.util_pygame import load_pygame
+from random import choice
 
 class AllSprites(pygame.sprite.Group):
     def __init__(self):
@@ -21,7 +22,6 @@ class AllSprites(pygame.sprite.Group):
         for sprite in sorted([s for s in self if not hasattr(s, 'ground')], key=lambda s: s.rect.bottom):
             self.display_surface.blit(sprite.image, sprite.rect.topleft + self.offset)
 
-
 class Sprite(pygame.sprite.Sprite):
     def __init__(self, pos, surf, groups):
         super().__init__(groups)
@@ -29,13 +29,11 @@ class Sprite(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft = pos)
         self.ground = True
 
-
 class CollisionSprite(pygame.sprite.Sprite):
     def __init__(self, pos, surf, groups):
         super().__init__(groups)
         self.image = surf
         self.rect = self.image.get_rect(topleft = pos)
-
 
 class SurvivorGame:
     def __init__(self):
@@ -52,13 +50,18 @@ class SurvivorGame:
         self.all_sprites = AllSprites()
         self.collision_sprites = pygame.sprite.Group()
         self.bullet_sprites = pygame.sprite.Group()
+        self.enemy_sprites = pygame.sprite.Group()
 
-        self.setup()
-
-        self.load_images()
         self.can_shoot = True
         self.shoot_time = 0
         self.gun_cooldown = 100
+
+        self.enemy_event = pygame.event.custom_type()
+        pygame.time.set_timer(self.enemy_event, 300)
+        self.spawn_position = []
+
+        self.load_images()
+        self.setup()
 
     def load_images(self):
         self.bullet_surf = pygame.image.load("bullet.png").convert_alpha()
@@ -92,6 +95,8 @@ class SurvivorGame:
             if obj.name == 'Player':
                 self.player = Player((obj.x, obj.y), self.all_sprites, self.collision_sprites)
                 self.gun = Gun(self.player, self.all_sprites)
+            else:
+                self.spawn_position.append((obj.x, obj.y))
 
     def run(self):
         while self.running:
@@ -100,6 +105,16 @@ class SurvivorGame:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                if event.type == self.enemy_event:
+
+                    enemy_class = choice([Bat, Blob, Skeleton])
+
+                    enemy_class(
+                        choice(self.spawn_position),
+                        (self.all_sprites, self.enemy_sprites),
+                        self.player,
+                        self.collision_sprites
+                    )
 
             self.input()
             self.display_surface.fill((0, 0, 0))
@@ -156,6 +171,72 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.center += self.direction * self.speed * dt
         if pygame.time.get_ticks() - self.spawn_time >= self.lifetime:
             self.kill()
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, pos, frames, groups, player, collision_sprites):
+        super().__init__(groups)
+        self.player = player
+        self.frames, self.frame_index = frames, 0
+        self.image = self.frames[self.frame_index]
+        self.animation_speed = 6
+        self.rect = self.image.get_rect(center = pos)
+        self.hitbox_rect = self.rect.inflate(-20, -40)
+        self.collision_sprites = collision_sprites
+        self.direction = pygame.math.Vector2()
+
+    def update(self, dt):
+        direction = (pygame.math.Vector2(self.rect.center) - pygame.math.Vector2(self.player.rect.center)).normalize() 
+        self.rect.center -= direction * self.speed * dt
+
+class Bat(Enemy):
+    def __init__(self, pos, groups, player, collision_sprites):
+
+        frames = [
+            pygame.image.load(f"bat_{i}.png").convert_alpha()
+            for i in range(4)
+        ]
+
+        super().__init__(
+            pos,
+            frames,
+            groups,
+            player,
+            collision_sprites
+        )
+
+        self.speed = 350
+
+class Blob(Enemy):
+    def __init__(self, pos, groups, player, collision_sprites):
+        frames = [
+            pygame.image.load(f"blob_{i}.png").convert_alpha()
+            for i in range(4)
+        ]
+
+        super().__init__(
+            pos,
+            frames,
+            groups,
+            player,
+            collision_sprites
+        )
+        self.speed = 100
+
+class Skeleton(Enemy):
+    def __init__(self, pos, groups, player, collision_sprites):
+        self.skeleton_frames = [
+            pygame.image.load(f"skeleton_{i}.png").convert_alpha()
+            for i in range(4)
+        ]
+
+        super().__init__(
+            pos,
+            self.skeleton_frames,
+            groups,
+            player,
+            collision_sprites
+        )
+        self.speed = 150
 
 if __name__ == '__main__':
     game = SurvivorGame()
