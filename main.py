@@ -1,7 +1,5 @@
 import pygame
 import sys
-from os.path import join
-from os import walk
 
 from Survivor import SurvivorGame
 from main_menu_game import main_menu
@@ -19,15 +17,27 @@ while True:
         result = game.run()
 
         if result == "menu":
-            choice
+            continue
 
     elif choice == "Survivor":
+
         game = SurvivorGame()
         result = game.run()
 
+        if result == "menu":
+            continue
+
+    elif choice == "Survivor":
+
+        game = SurvivorGame()
+        result = game.run()
+
+        if result == "menu":
+            continue
+
     elif choice == "Block Blast":
         pass
-    
+
     elif choice == "quit":
         pygame.quit()
         sys.exit()

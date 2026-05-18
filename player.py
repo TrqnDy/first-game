@@ -36,6 +36,7 @@ class Player(pygame.sprite.Sprite):
         self.stand = True
         self.state = "down"
         self.frame = 0
+        self.score = 0
 
         if not self.stand:
             self.image = self.animations[self.state][0]

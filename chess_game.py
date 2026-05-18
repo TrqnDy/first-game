@@ -1,3 +1,5 @@
+from buttom_and_font import Button
+
 import pygame
 import copy
 
@@ -256,7 +258,7 @@ class King(Piece):
     
 class ChessGame:
     def __init__(self):
-        self.screen = pygame.display.set_mode((SIZE, SIZE))
+        self.screen = pygame.display.set_mode((SIZE, SIZE + 100))
         pygame.display.set_caption("Chess.com")
 
         self.board_img = pygame.image.load("chess_board.png")
@@ -267,6 +269,8 @@ class ChessGame:
         self.turn_move = "white"
         self.selected = None
 
+        self.white_score = 0
+        self.black_score = 0
         self.dragging = False
         self.drag_piece = None
         self.drag_from = None
@@ -373,6 +377,8 @@ class ChessGame:
                 # bắt đầu kéo
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     x, y = event.pos
+                    if y > SIZE:  # tránh click vào phần menu
+                        continue
                     row = y // SQUARE
                     col = x // SQUARE
 
@@ -400,6 +406,14 @@ class ChessGame:
                         if piece and piece.color == self.turn_move:
                             if piece.can_move(sc, sr, self.board, col, row) and is_valid_move(self.board, sr, sc, row, col, self.turn_move):
                                 piece.move((sr, sc), (row, col), self.board)
+                                enemy_color = self.turn_move
+                                if Checkmate.is_checkmate(self.board, enemy_color):
+                                    if enemy_color == "white":
+                                        self.black_score += 1
+                                    else:
+                                        self.white_score += 1
+
+
                                 self.turn_move = next_move(self.turn_move)
 
                                 if isinstance(piece, Pawn):
@@ -411,10 +425,86 @@ class ChessGame:
                         self.drag_from = None
                         self.mouse_pos = (0,0)
 
+            option_menu = Option_menu(self.screen, self.white_score, self.black_score)
+            option_menu.draw()
+            if option_menu.check_click():
+                return "menu"
+            
             self.draw()
             clock.tick(60)
 
         pygame.quit()
+
+class Checkmate:
+
+    def has_legal_moves(board, color):
+
+        for sr in range(8):
+            for sc in range(8):
+
+                piece = board[sr][sc]
+
+                if piece and piece.color == color:
+
+                    for tr in range(8):
+                        for tc in range(8):
+
+                            if piece.can_move(
+                                sc,
+                                sr,
+                                board,
+                                tc,
+                                tr
+                            ):
+
+                                if is_valid_move(
+                                    board,
+                                    sr,
+                                    sc,
+                                    tr,
+                                    tc,
+                                    color
+                                ):
+
+                                    return True
+
+        return False
+
+    def is_checkmate(board, color):
+
+        if is_in_check(board, color):
+
+            if not Checkmate.has_legal_moves(board, color):
+                return True
+
+        return False
+
+class Option_menu:
+    def __init__(self, display_surface, white_score, black_score):
+        self.display_surface = display_surface
+        self.white_score = white_score
+        self.black_score = black_score
+        self.font_back = pygame.font.Font(None, 40)
+        self.back_button = Button(
+            None,
+            (SIZE - 150, SIZE + 20),
+            "Back to main menu",
+            self.font_back,
+            "white",
+            "red"
+        )
+        self.score = self.font_back.render(f"White: {self.white_score} - Black: {self.black_score}", True, "white")
+        self.score_rect = self.score.get_rect(center=(SIZE//2, SIZE + 60))
+
+    def draw(self):
+        self.back_button.changeColor(pygame.mouse.get_pos())
+        self.back_button.update(self.display_surface)
+        self.display_surface.blit(self.score, self.score_rect)
+
+    def check_click(self):
+        if pygame.mouse.get_pressed()[0]:
+            if self.back_button.checkForInput(pygame.mouse.get_pos()):
+                return "menu"
 
 if __name__ == "__main__":
     game = ChessGame()

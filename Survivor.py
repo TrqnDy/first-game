@@ -1,6 +1,7 @@
 from os import walk
 from math import atan2, degrees
 import pygame
+from buttom_and_font import Button
 from player import Player
 from pytmx.util_pygame import load_pygame
 from random import choice
@@ -45,7 +46,6 @@ class SurvivorGame:
         self.display_surface = pygame.display.set_mode((self.WIN_WIDTH, self.WIN_HEIGHT))
         pygame.display.set_caption("Survivor")
         self.clock = pygame.time.Clock()
-        self.running = True
 
         self.all_sprites = AllSprites()
         self.collision_sprites = pygame.sprite.Group()
@@ -55,6 +55,7 @@ class SurvivorGame:
         self.can_shoot = True
         self.shoot_time = 0
         self.gun_cooldown = 100
+        self.score = 0
 
         self.enemy_event = pygame.event.custom_type()
         pygame.time.set_timer(self.enemy_event, 300)
@@ -99,12 +100,10 @@ class SurvivorGame:
                 self.spawn_position.append((obj.x, obj.y))
 
     def run(self):
-        while self.running:
+        while True:
             dt = self.clock.tick(120) / 1000
 
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
                 if event.type == self.enemy_event:
 
                     enemy_class = choice([Bat, Blob, Skeleton])
@@ -122,10 +121,15 @@ class SurvivorGame:
             self.all_sprites.update(dt)
             self.gun_timer()
             self.all_sprites.draw(self.player.rect.center)
+            option_menu = Option_menu(self.display_surface, self.player.score)
+            option_menu.draw()
+
+            if option_menu.check_click():
+                return "menu"
 
             pygame.display.update()
 
-        pygame.quit()
+        #pygame.quit()
 
 class Gun(pygame.sprite.Sprite):
     def __init__(self, player, groups):
@@ -186,7 +190,12 @@ class Enemy(pygame.sprite.Sprite):
         self.bullet_sprites = bullet_sprites
         self.direction = pygame.math.Vector2()
 
+    def animate(self, dt):
+        self.frame_index += self.animation_speed * dt
+        self.image = self.frames[int(self.frame_index) % len(self.frames)]
+
     def update(self, dt):
+        self.animate(dt)
         direction = (
             pygame.math.Vector2(self.player.rect.center) -
             pygame.math.Vector2(self.hitbox_rect.center)
@@ -204,6 +213,7 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.center = self.hitbox_rect.center
 
         if self.bullet_collision():
+            self.player.score += self.point_after_death
             self.kill()
 
     def collision_walls(self, direction):
@@ -247,6 +257,7 @@ class Bat(Enemy):
         )
 
         self.speed = 350
+        self.point_after_death = 30
 
 class Blob(Enemy):
     def __init__(self, pos, groups, player, collision_sprites, bullet_sprites):
@@ -264,6 +275,7 @@ class Blob(Enemy):
             bullet_sprites
         )
         self.speed = 100
+        self.point_after_death = 10
 
 class Skeleton(Enemy):
     def __init__(self, pos, groups, player, collision_sprites, bullet_sprites):
@@ -281,6 +293,45 @@ class Skeleton(Enemy):
             bullet_sprites
         )
         self.speed = 150
+        self.point_after_death = 20
+
+class Option_menu:
+    def __init__(self, display_surface, score):
+        self.display_surface = display_surface
+        self.score = score
+
+        self.font_score = pygame.font.Font(None, 70)
+        self.font_back = pygame.font.Font(None, 40)
+
+        self.back_button = Button(
+            None,
+            (1130, 20),
+            "Back to main menu",
+            self.font_back,
+            "white",
+            "red"
+        )
+
+    def draw(self):
+        # Score
+        score_surf = self.font_score.render(
+            f"Score: {self.score}",
+            True,
+            "white"
+        )
+
+        self.display_surface.blit(score_surf, (20, 20))
+
+        # Back button
+        self.back_button.changeColor(pygame.mouse.get_pos())
+        self.back_button.update(self.display_surface)
+
+    def check_click(self):
+        if pygame.mouse.get_pressed()[0]:
+            if self.back_button.checkForInput(pygame.mouse.get_pos()):
+                return True
+
+        return False
 
 if __name__ == '__main__':
     game = SurvivorGame()
